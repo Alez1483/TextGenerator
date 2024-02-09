@@ -23,12 +23,6 @@ public class Trainer : MonoBehaviour
     [HideInInspector] public DataPoint[] originalTrainData;
     [HideInInspector] public DataPoint[] testData;
 
-    [Header("Image Randomization")]
-    [SerializeField] bool randomizeImages;
-    [SerializeField, Range(0, 25)] int randomizeAfterEveryXEpochs;
-    int epochIndex = 0;
-    [SerializeField] ImageRandomizer imageRandomizer;
-
     double epochAtm = 0;
     System.Diagnostics.Stopwatch timer = new System.Diagnostics.Stopwatch();
 
@@ -79,22 +73,6 @@ public class Trainer : MonoBehaviour
 
             if (batchStart >= trainData.Length)
             {
-                if (randomizeImages)
-                {
-                    DataSetHelper.SuffleTwoSetsAtSync(trainData, originalTrainData);
-                }
-                else
-                {
-                    DataSetHelper.SuffleDataSet(trainData);
-                }
-
-                epochIndex++;
-
-                if (randomizeImages && randomizeAfterEveryXEpochs > 0 && epochIndex % randomizeAfterEveryXEpochs == 0)
-                {
-                    imageRandomizer.RandomizeImages(originalTrainData, trainData);
-                }
-
                 batchStart = 0;
             }
         } while (timer.ElapsedMilliseconds < 16);
@@ -112,12 +90,8 @@ public class Trainer : MonoBehaviour
 
     void LoadData()
     {
-        string trainImagePath = Path.Combine("Assets", "Code", "Data", "TrainImages.idx");
-        string trainLabelPath = Path.Combine("Assets", "Code", "Data", "TrainLabels.idx");
-        string testImagePath = Path.Combine("Assets", "Code", "Data", "TestImages.idx");
-        string testLabelPath = Path.Combine("Assets", "Code", "Data", "TestLabels.idx");
-
-        DataPoint[] allData = ImageLoader.LoadImages((trainImagePath, trainLabelPath), (testImagePath, testLabelPath));
+        string trainImagePath = Path.Combine("Assets", "Code", "Data", "TrainText.idx");
+        DataPoint[] allData = ImageLoader.LoadImages(trainImagePath);
 
         DataSetHelper.SuffleDataSet(allData);
 

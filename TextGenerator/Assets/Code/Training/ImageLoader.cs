@@ -3,7 +3,7 @@ using UnityEngine;
 
 public static class ImageLoader
 {
-    public static DataPoint[] LoadImages(params (string imagePath, string labelPath)[] paths)
+    public static DataPoint[] LoadImages(string path)
     {
         int[] imagesInFiles = new int[paths.Length];
         FileStream[] imageStreams = new FileStream[paths.Length];

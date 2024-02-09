@@ -53,7 +53,7 @@ public class NeuralNetwork
     {
         //forward pass
 
-        double[] layerOutput = dataPoint.pixelData;
+        double[] layerOutput = dataPoint.data;
 
         for (int i = 0; i < layers.Length; i++)
         {
