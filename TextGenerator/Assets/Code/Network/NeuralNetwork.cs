@@ -5,26 +5,29 @@ public class NeuralNetwork
     IActivation hiddenActivation;
     IActivation outputActivation;
 
-    public NeuralNetwork(IActivation hiddenAct, IActivation outputAct, params int[] layerSizes)
+    public NeuralNetwork(IActivation hiddenAct, IActivation outputAct, int inputSize, int outputSize, params int[] hiddenLayerSizes)
     {
         hiddenActivation = hiddenAct;
         outputActivation = outputAct;
-        inputCount = layerSizes[0];
-        layers = new Layer[layerSizes.Length - 1];
+        inputCount = hiddenLayerSizes[0];
+        layers = new Layer[hiddenLayerSizes.Length + 1];
 
-        for(int i = 0; i < layers.Length; i++)
+        layers[0] = new Layer(inputSize, hiddenLayerSizes[0], hiddenAct);
+
+        for(int i = 1; i < layers.Length - 1; i++)
         {
-            layers[i] = new Layer(layerSizes[i], layerSizes[i + 1], hiddenActivation);
+            layers[i] = new Layer(hiddenLayerSizes[i - 1], hiddenLayerSizes[i], hiddenAct);
         }
-        layers[layers.Length - 1].activation = outputActivation;
+
+        layers[layers.Length - 1] = new Layer(hiddenLayerSizes[hiddenLayerSizes.Length - 1], outputSize, outputAct);
     }
 
     //can wrap around to the begin of the array if end is reached
-    public void LearnBatch(DataPoint[] dataPoints, int startIndex, int batchSize, double learnRate, double momentum, NetworkDataContainer[] networkData, ICost cost)
+    public void LearnBatch(double[] textData, int startIndex, int inputSize, int batchSize, double learnRate, double momentum, NetworkDataContainer[] networkData, ICost cost)
     {
         System.Threading.Tasks.Parallel.For(0, batchSize, i =>
         {
-            UpdateAllGradients(dataPoints[(startIndex + i) % dataPoints.Length], networkData[i], cost);
+            UpdateAllGradients(textData, startIndex, inputSize, networkData[i], cost);
         });
 
         for(int layerIndex = 0; layerIndex < layers.Length; layerIndex++)
@@ -33,9 +36,10 @@ public class NeuralNetwork
         }
     }
 
-    public double[] Evaluate(double[] input)
+    public double[] Evaluate(double[] input, int startIndex = 0)
     {
-        for(int i = 0; i < layers.Length; i++)
+        input = layers[0].EvaluateLayer(input, startIndex);
+        for(int i = 1; i < layers.Length; i++)
         {
             input = layers[i].EvaluateLayer(input);
         }
@@ -43,21 +47,21 @@ public class NeuralNetwork
         return input;
     }
 
-    public int Classify(double[] input)
+    public int Classify(double[] input, int startIndex = 0)
     {
-        double[] output = Evaluate(input);
+        double[] output = Evaluate(input, startIndex);
         return MaxIndex(output);
     }
 
-    public void UpdateAllGradients(DataPoint dataPoint, NetworkDataContainer networkData, ICost cost)
+    public void UpdateAllGradients(double[] textData, int startIndex, int inputSize, NetworkDataContainer networkData, ICost cost)
     {
         //forward pass
 
-        double[] layerOutput = dataPoint.data;
+        double[] layerOutput = textData;
 
         for (int i = 0; i < layers.Length; i++)
         {
-            layerOutput = layers[i].EvaluateLayer(layerOutput, networkData.GetLayerData(i));
+            layerOutput = layers[i].EvaluateLayer(layerOutput, networkData.GetLayerData(i), i > 0? 0 : startIndex);
         }
 
         //backpropagation
@@ -66,7 +70,8 @@ public class NeuralNetwork
         Layer layer = layers[layerIndex];
         LayerDataContainer layerData = networkData.GetLayerData(layerIndex);
 
-        layer.UpdateOutputLayerWeightedInputDerivatives(layerData, dataPoint.expectedOutput, cost);
+        int expectedOutput = (int)(textData[startIndex + inputSize] * 255.0 + 0.5);
+        layer.UpdateOutputLayerWeightedInputDerivatives(layerData, expectedOutput, cost);
         layer.UpdateLayerGradients(layerData);
         
         for(layerIndex--; layerIndex >= 0; layerIndex--)

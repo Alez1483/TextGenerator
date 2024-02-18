@@ -37,7 +37,7 @@ public class Layer
     //j=zero based output index, k=input index
     public double GetWeight(int inIndex, int outIndex) => weights[outIndex * nodesIn + inIndex];
 
-    public double[] EvaluateLayer(double[] input)
+    public double[] EvaluateLayer(double[] input, int startIndex = 0)
     {
         double[] output = new double[nodesOut];
 
@@ -47,7 +47,7 @@ public class Layer
 
             for(int inIndex = 0; inIndex < nodesIn; inIndex++, wIndex++)
             {
-                weightedInput += input[inIndex] * weights[wIndex];
+                weightedInput += input[inIndex + startIndex] * weights[wIndex];
             }
 
             output[outIndex] = weightedInput;
@@ -57,7 +57,7 @@ public class Layer
 
         return output;
     }
-    public double[] EvaluateLayer(double[] input, LayerDataContainer layerData)
+    public double[] EvaluateLayer(double[] input, LayerDataContainer layerData, int startIndex = 0)
     {
         layerData.inputs = input;
 
@@ -69,11 +69,11 @@ public class Layer
 
             for (int inIndex = 0; inIndex < nodesIn; inIndex++, wIndex++)
             {
-                weightedInput += input[inIndex] * weights[wIndex];
+                weightedInput += input[inIndex + startIndex] * weights[wIndex];
             }
 
             layerData.weightedInputs[outIndex] = weightedInput;
-            output[outIndex] = weightedInput;                                                                                                             
+            output[outIndex] = weightedInput;
         }
 
         activation.ActivateLayer(output);
@@ -82,14 +82,14 @@ public class Layer
         return output;
     }
 
-    public void UpdateOutputLayerWeightedInputDerivatives(LayerDataContainer outputLayerData, double[] expectedOutput, ICost cost)
+    public void UpdateOutputLayerWeightedInputDerivatives(LayerDataContainer outputLayerData, int expectedOutput, ICost cost)
     {
         //works only with one-hot encoding
         if (activation is Softmax && cost is CrossEntropy)
         {
             for (int outIndex = 0; outIndex < nodesOut; outIndex++)
             {
-                outputLayerData.weightedInputDerivatives[outIndex] =  outputLayerData.activations[outIndex] - expectedOutput[outIndex];
+                outputLayerData.weightedInputDerivatives[outIndex] =  outputLayerData.activations[outIndex] - (outIndex == expectedOutput? 1 : 0);
             }
             return;
         }
@@ -97,7 +97,7 @@ public class Layer
         for(int outIndex = 0; outIndex < nodesOut; outIndex++)
         {
             double activationDeriv = activation.Derivate(outputLayerData.weightedInputs[outIndex]);
-            double costDeriv = cost.CostDerivative(outputLayerData.activations[outIndex], expectedOutput[outIndex]);
+            double costDeriv = cost.CostDerivative(outputLayerData.activations[outIndex], outIndex == expectedOutput ? 1 : 0);
             outputLayerData.weightedInputDerivatives[outIndex] = activationDeriv * costDeriv;
         }
     }

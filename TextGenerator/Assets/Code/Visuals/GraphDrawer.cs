@@ -6,10 +6,8 @@ using System.Globalization;
 [System.Serializable]
 public class GraphDrawer
 {
-    DataPoint[] testData;
-    DataPoint[] trainData;
-    int testDataStart = 0;
-    int trainDataStart = 0;
+    double[] testData;
+    double[] trainData;
     NeuralNetwork network;
     
     NumberFormatInfo percentFormat = new NumberFormatInfo { PercentPositivePattern = 1 };
@@ -41,7 +39,7 @@ public class GraphDrawer
     float camXSpeed = 0.0f;
     bool followingGraph = true;
 
-    public void Initialize(DataPoint[] testData, DataPoint[] trainData, NeuralNetwork network)
+    public void Initialize(double[] testData, double[] trainData, NeuralNetwork network)
     {
         this.testData = testData;
         this.trainData = trainData;
@@ -64,49 +62,32 @@ public class GraphDrawer
         }
     }
 
-    public void RunTest(int testSamples, double epochAtm, bool randomize)
+    public void RunTest(int testSamples, int inputSize, double epochAtm)
     {
-        if (!testAgainstTrainData)
+        int testDataStart = Random.Range(0, testData.Length - (testSamples * inputSize + 1));
+
+        if (testAgainstTrainData)
         {
-            if (randomize)
-            {
-                testDataStart = Random.Range(0, testData.Length);
-            }
-            else
-            {
-                testDataStart = (testDataStart + testSamples) % testData.Length;
-            }
-            
+            int trainDataStart = Random.Range(0, testData.Length - (testSamples * inputSize + 1));
+
+            trainTrail.transform.localPosition = new Vector3((float)epochAtm, EvaluatePerformance(testSamples, trainDataStart, inputSize, trainData));
         }
-        else
-        {
-            if (randomize)
-            {
-                testDataStart = Random.Range(0, testData.Length);
-                trainDataStart = Random.Range(0, testData.Length);
-            }
-            else
-            {
-                testDataStart = (testDataStart + testSamples) % testData.Length;
-                trainDataStart = (trainDataStart + testSamples) % trainData.Length;
-            }
-            trainTrail.transform.localPosition = new Vector3((float)epochAtm, EvaluatePerformance(testSamples, trainDataStart, trainData));
-        }
-        testTrail.transform.localPosition = new Vector3((float)epochAtm, EvaluatePerformance(testSamples, testDataStart, testData));
+        testTrail.transform.localPosition = new Vector3((float)epochAtm, EvaluatePerformance(testSamples, testDataStart, inputSize, testData));
     }
 
     readonly object threadLock = new object();
-    float EvaluatePerformance(int testSamples, int startIndex, DataPoint[] data)
+
+    float EvaluatePerformance(int testSamples, int startIndex, int inputSize, double[] data)
     {
         int right = 0;
         System.Threading.Tasks.Parallel.For(0, testSamples, i =>
         {
-            DataPoint point = data[(startIndex + i) % data.Length];
-            double[] outp = network.Evaluate(point.pixelData);
+            int start = startIndex + i * inputSize;
+            int outp = network.Classify(data, start);
 
             lock (threadLock)
             {
-                if (network.MaxIndex(outp) == point.label)
+                if (outp == (int)(data[start + inputSize] * 255.0 + 0.5))
                 {
                     right++;
                 }

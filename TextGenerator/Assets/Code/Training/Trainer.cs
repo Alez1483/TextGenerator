@@ -13,20 +13,21 @@ public class Trainer : MonoBehaviour
     ICost cost;
 
     [Range(0.0f, 1.0f)] public double dataSplit = 0.85;
-    [SerializeField] private int[] networkSize;
+    [SerializeField] public int inputSize;
+    [SerializeField] private int[] hiddenLayerSizes;
     [SerializeField, Range(0f, 1f)] private double learnRate = 1;
     [SerializeField, Range(0f, 1f)] private double momentum;
     [SerializeField] private int batchSize;
     private int batchStart;
 
-    [HideInInspector] public DataPoint[] trainData;
-    [HideInInspector] public DataPoint[] originalTrainData;
-    [HideInInspector] public DataPoint[] testData;
+    [HideInInspector] public double[] trainData;
+    [HideInInspector] public double[] testData;
 
     double epochAtm = 0;
     System.Diagnostics.Stopwatch timer = new System.Diagnostics.Stopwatch();
 
     [Header("Graph Drawer")]
+    [Range(0.0f, 1000.0f), SerializeField] private float scrollMultiplier; 
     [SerializeField] private int testSize = 100;
     [SerializeField] GraphDrawer graphDrawer;
 
@@ -45,7 +46,7 @@ public class Trainer : MonoBehaviour
         var hiddenAct = new ReLu();
         cost = new CrossEntropy();
         var outputAct = new Softmax();
-        network = new NeuralNetwork(hiddenAct, outputAct, networkSize);
+        network = new NeuralNetwork(hiddenAct, outputAct, inputSize, 255, hiddenLayerSizes);
         networkTrainData = new NetworkDataContainer[batchSize];
         for(int i = 0; i <  networkTrainData.Length; i++)
         {
@@ -55,9 +56,9 @@ public class Trainer : MonoBehaviour
         //load data
         LoadData();
 
-        graphDrawer.Initialize(testData, graphDrawer.testAgainstTrainData? originalTrainData : null, network);
+        graphDrawer.Initialize(testData, trainData, network);
 
-        batchStart = 0;
+        batchStart = Random.Range(0, inputSize);
     }
 
     void Update()
@@ -66,14 +67,14 @@ public class Trainer : MonoBehaviour
 
         do
         {
-            network.LearnBatch(trainData, batchStart, batchSize, learnRate, momentum, networkTrainData, cost);
+            network.LearnBatch(trainData, batchStart, inputSize, batchSize, learnRate, momentum, networkTrainData, cost);
 
-            batchStart += batchSize;
-            epochAtm += (batchSize / (double)trainData.Length);
+            batchStart += batchSize * inputSize;
+            epochAtm += (batchSize * inputSize / (double)trainData.Length);
 
-            if (batchStart >= trainData.Length)
+            if (batchStart + inputSize * batchSize >= trainData.Length)
             {
-                batchStart = 0;
+                batchStart = Random.Range(0, inputSize);
             }
         } while (timer.ElapsedMilliseconds < 16);
 
@@ -82,7 +83,7 @@ public class Trainer : MonoBehaviour
         if (Time.timeAsDouble - lastUpdate > graphUpdateRate)
         {
             lastUpdate += graphUpdateRate;
-            graphDrawer.RunTest(testSize, epochAtm, true);
+            graphDrawer.RunTest(testSize, inputSize, epochAtm * scrollMultiplier);
         }
 
         graphDrawer.Update(epochAtm);
@@ -90,29 +91,9 @@ public class Trainer : MonoBehaviour
 
     void LoadData()
     {
-        string trainImagePath = Path.Combine("Assets", "Code", "Data", "TrainText.idx");
-        DataPoint[] allData = ImageLoader.LoadImages(trainImagePath);
-
-        DataSetHelper.SuffleDataSet(allData);
+        string trainImagePath = Path.Combine("Assets", "Code", "Data", "archive", "Papers.csv");
+        double[] allData = TextLoader.LoadText(trainImagePath);
 
         (trainData, testData) = DataSetHelper.SplitData(allData, dataSplit);
-
-        if (randomizeImages)
-        {
-            originalTrainData = trainData;
-
-            trainData = new DataPoint[originalTrainData.Length];
-
-            int pixels = originalTrainData[0].pixelCount;
-            int width = originalTrainData[0].imageWidth;
-
-            for (int i = 0; i < trainData.Length; i++)
-            {
-                trainData[i] = new DataPoint(new double[pixels], width, originalTrainData[i].label);
-            }
-
-            imageRandomizer.RandomizeImages(originalTrainData, trainData);
-            imageRandomizer.RandomizeImages(testData);
-        }
     }
 }
